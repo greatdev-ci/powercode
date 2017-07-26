@@ -1,0 +1,7 @@
+My name is {{:name}}, 
+i'm a {{:profession}} and 
+i live in {{:city}}
+<br/>
+<em>My words</em>
+{{:getWords()}}
+<br/>

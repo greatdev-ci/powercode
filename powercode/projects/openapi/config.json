@@ -1,0 +1,27 @@
+{
+    "files": [
+        "projects/openapi/openapi-enums.json",
+        "projects/openapi/openapi-services.json"
+    ],
+    "projects": {
+
+    },
+    "engines": {
+        "openapi": {
+            "engine": "simple-axon-jpa",
+            "model": "crud",
+            "output": {
+                "extension": ".java",
+                "folder": "/projects/openapi/generated/ci/smile/oci/openapi",
+                "groupId": "ci.smile",
+                "artifactId": "oci.openapi",
+                "version": "1.0.0",
+                "package": "ci.smile.oci.openapi",
+                "enums": {
+                    "folder": "/helpers/enums",
+                    "suffix": "Enum"
+                }
+            }
+        }
+    }
+}

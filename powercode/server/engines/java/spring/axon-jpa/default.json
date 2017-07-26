@@ -1,0 +1,66 @@
+{
+    "model": "cqrs",
+    "output": {
+        "extension": ".java",
+        "folder": "generated/{project}",
+        "MakeFolderFromPackage": false,
+        "groupId": "",
+        "artifactId": "{project%lower}",
+        "version": "1.0.0",
+        "package": "{project%lower}",
+        "pom": {
+            "extension": ".xml",
+            "folder": "generated/{project}",
+            "fileName": "pom"
+        },
+        "enums": {
+            "folder": "/helpers/enums",
+            "className": "{enum%upper-first}Enum",
+            "fileName": "{enum%upper-first}Enum",
+            "package": "helpers.enums"
+        },
+        "services": {
+            "entity": {
+                "package": "dao.entity",
+                "folder": "/dao/entity",
+                "className": "{source%upper-first}Entity",
+                "fileName": "{source%upper-first}Entity"
+            },
+            "repository": {
+                "package": "dao.repository",
+                "folder": "/dao/repository",
+                "className": "{source%upper-first}Repository",
+                "fileName": "{source%upper-first}Repository"
+            },
+            "controller": {
+                "package": "rest.api",
+                "folder": "/rest/api",
+                "className": "{source%upper-first}Controller",
+                "fileName": "{source%upper-first}Controller",
+                "baseRestApiPath": "/{source%upper-first}"
+            },
+            "restRequestDto": {
+                "package": "dto.{source%lower}",
+                "folder": "/dto/{source%lower}",
+                "className": "{query%upper-first}RequestDTO",
+                "fileName": "{query%upper-first}RequestDTO"
+            },
+            "responseDto": {
+                "package": "dto.{source%lower}",
+                "folder": "/dto/{source%lower}",
+                "className": "{query%upper-first}ResponseDTO",
+                "itemClassName": "{query%upper-first}ResponseItemDTO",
+                "fileName": "{query%upper-first}ResponseDTO"
+            }
+        },
+        "clients": {
+            "jaggery": {
+                "folder": "/clients/{clientType%lower}",
+                "className": "{project%upper-first}{apiType%upper-first}ServicesClient",
+                "fileName": "{project%upper-first}{apiType%upper-first}ServicesClient",
+                "extension": ".jag",
+                "package": ""
+            }
+        }
+    }
+}

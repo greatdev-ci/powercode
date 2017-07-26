@@ -1,0 +1,18 @@
+package {{: output.package}};
+
+public enum {{: output.className}}{
+    {{for items}}
+    {{:key}}("{{:value}}"){{if #index < (~root.items.length - 1)}},{{else}};{{/if}}
+    {{/for}}
+   
+   private String value = "";
+   
+   {{: output.className}}(String value){
+       this.value = value;
+   }
+   
+   public String getValue(){
+       return value;
+   }
+
+}

@@ -1,0 +1,4 @@
+{
+    "simple-axon-jpa": "/server/engines/java/spring/axon-jpa/engine.jag",
+    "simple-jpa-crud": "/server/engines/java/spring/axon-jpa/crud-engine.jag"
+}

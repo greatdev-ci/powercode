@@ -1,0 +1,127 @@
+<%
+
+var log = new Log();
+
+function populateEntry(entry, config, options) {
+    if (options.length <= 0) return;
+    for (var i = 0, option; option = options[i]; i++) {
+        if (option.from == null && option.to == null) continue;
+        if (option.from == null) option.from == option.to;
+        if (option.to == null) option.to = option.from;
+        if (typeof option.condition === "boolean" && !option.condition) return;
+        if (option.default !== undefined) entry[option.to] = option.default;
+        switch (option.type) {
+            case "string":
+                if (typeof config[option.from] === "string" && (option.acceptEmpty || (config[option.from].trim().length > 0))) {
+                    entry[option.to] = config[option.from];
+                }
+                break;
+            case "number":
+                if (typeof config[option.from] === "number" && (option.acceptEmpty || ((config[option.from] + "").trim().length > 0))) {
+                    entry[option.to] = config[option.from];
+                }
+                break;
+            case "boolean":
+                if (typeof config[option.from] === "boolean" && (option.acceptEmpty || ((config[option.from] + "").trim().length > 0))) {
+                    entry[option.to] = config[option.from];
+                }
+                break;
+            case "array":
+                if (Array.isArray(config[option.from]) && (option.acceptEmpty || (config[option.from].length > 0))) {
+                    entry[option.to] = config[option.from];
+                }
+                break;
+            case "object":
+                if (typeof config[option.from] === "object" && (option.acceptEmpty || (config[option.from] == null))) {
+                    entry[option.to] = config[option.from];
+                }
+                break;
+            case "notNull":
+                if (config[option.from] == null) {
+                    entry[option.to] = config[option.from];
+                }
+                break;
+            default:
+                entry[option.to] = config[option.from];
+                break;
+        }
+    }
+}
+
+function deepUpdateEntry(destEntry, srcEntry, escapeNull) {
+    // log.info("-----> deepUpdateEntry::destEntry: "+stringify(destEntry));
+    // log.info("-----> deepUpdateEntry::srcEntry: "+stringify(srcEntry));
+    for (var property in srcEntry) {
+        if (destEntry.hasOwnProperty(property) && srcEntry.hasOwnProperty(property)) {
+            if (escapeNull && srcEntry[property] == null) continue;
+
+            if (typeof destEntry[property] === "object" && typeof srcEntry[property] === "object") {
+                log.info("-----> deepUpdateEntry::deep: "+property);
+                if (destEntry[property] == null) destEntry[property] = {};
+                deepUpdateEntry(destEntry[property], srcEntry[property], escapeNull);
+            } else {
+                // log.info("-----> deepUpdateEntry::property: "+property);
+                destEntry[property] = srcEntry[property];
+            }
+        }
+    }
+    // log.info("-----> deepUpdateEntry::destEntry: "+stringify(destEntry));
+}
+
+function updateEntry(destEntry, srcEntry, escapeNull) {
+    // log.info("-----> updateEntry::destEntry: "+stringify(destEntry));
+    // log.info("-----> updateEntry::srcEntry: "+stringify(srcEntry));
+    for (var property in srcEntry) {
+        if (destEntry.hasOwnProperty(property) && srcEntry.hasOwnProperty(property)) {
+            if (escapeNull && srcEntry[property] == null) continue;
+            // log.info("-----> updateEntry::property: "+property);
+            destEntry[property] = srcEntry[property];
+        }
+    }
+    // log.info("-----> updateEntry::destEntry: "+stringify(destEntry));
+    //return destEntry;
+}
+
+function extendEntry(destEntry, srcEntry) {
+    // log.info("-----> extendEntry::destEntry: "+stringify(destEntry));
+    // log.info("-----> extendEntry::srcEntry: "+stringify(srcEntry));
+    var destCopy = destEntry;
+    for(var property in destEntry){
+        if(destEntry.hasOwnProperty(destEntry)){
+            destCopy[property] = destEntry[property];
+        }
+    }
+    for (var property in srcEntry) {
+        if (srcEntry.hasOwnProperty(property) && (!destCopy.hasOwnProperty(property))) {
+            destCopy[property] = srcEntry[property];
+        }
+    }
+    // log.info("-----> extendEntry::destCopy: "+stringify(destCopy));
+    return destCopy;
+}
+
+function mergeEntries(destEntry, srcEntry, srcWin) {
+    var destCopy = extendEntry({}, destEntry),
+        srcCopy = extendEntry({}, srcEntry);
+    
+    // log.info("-----> destCopy: "+stringify(destCopy));
+    // log.info("-----> srcCopy: "+stringify(srcCopy));
+    for (var property in srcCopy) {
+        if (destCopy.hasOwnProperty(property) && srcCopy.hasOwnProperty(property)) {
+            if (srcCopy[property] == null) continue;
+            if (typeof destCopy[property] === "object" && typeof destCopy[property] === "object") {
+                if (destCopy[property] == null) destCopy[property] = {};
+                destCopy[property]  = mergeEntries(destCopy[property], srcCopy[property], srcWin);
+            } else if(srcWin){
+                destCopy[property] = srcCopy[property];
+            }
+        }else{
+            if(srcCopy.hasOwnProperty(property)){
+                destCopy[property] = srcCopy[property];
+            }
+        }
+    }
+    return destCopy;
+}
+
+%>

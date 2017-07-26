@@ -1,0 +1,196 @@
+{
+    "projects": {
+        "openapi": {
+            "services": {
+                "OpenApiBillingDb": {
+                    "type": "datastorage",
+                    "sources": {
+                        "Application": {
+                            "name": "application",
+                            "properties": {
+                                "id": {
+                                    "baseType": "Integer",
+                                    "generate": "AUTO",
+                                    "isIdentifier": true
+                                },
+                                "name": {
+                                    "baseType": "String",
+                                    "length": 255
+                                },
+                                "policy": {
+                                    "baseType": "String",
+                                    "length": 255
+                                },
+                                "workflowRef": {
+                                    "baseType": "String",
+                                    "length": 255
+                                },
+                                "status": {
+                                    "baseType": "ActivationStatusEnum",
+                                    "length": 1
+                                },
+                                "username": {
+                                    "baseType": "String",
+                                    "length": 255
+                                }
+                            },
+                            "relations": {
+                                "Subscriptions": {
+                                    "type": "1*",
+                                    "cascadeDelete": true,
+                                    "target": "Subscription",
+                                    "from": "id",
+                                    "to": "applicationId"
+                                },
+                                "Plan": {
+                                    "type": "01",
+                                    "cascadeDelete": true,
+                                    "target": "BillingPlan",
+                                    "from": "planId",
+                                    "to": "id"
+                                }
+                            },
+                            "join": {
+                                "type": "inner",
+                                "Facture": "id",
+                                "FactureItem": "factureId"
+                            }
+                        },
+                        "Subscription": {
+                            "properties": {
+                                "id": {
+                                    "baseType": "Integer",
+                                    "generate": "AUTO",
+                                    "isIdentifier": true
+                                },
+                                "policy": {
+                                    "baseType": "String",
+                                    "length": 255
+                                },
+                                "workflowRef": {
+                                    "baseType": "String",
+                                    "length": 255
+                                },
+                                "status": {
+                                    "baseType": "ActivationStatusEnum",
+                                    "length": 1
+                                },
+                                "applicationId": {
+                                    "name": "app_id",
+                                    "baseType": "Integer"
+                                },
+                                "apiName": {
+                                    "baseType": "String",
+                                    "length": 255
+                                },
+                                "apiVersion": {
+                                    "baseType": "String",
+                                    "length": 255
+                                },
+                                "apiContext": {
+                                    "baseType": "String",
+                                    "length": 255
+                                }
+                            },
+                            "relations": {
+                                "Plan": {
+                                    "type": "*1",
+                                    "cascadeDelete": true,
+                                    "target": "BillingPlan",
+                                    "from": "planId",
+                                    "to": "id",
+                                    "inverseName": "Subscriptions"
+                                }
+                            },
+                            "join": {
+                                "type": "inner",
+                                "Facture": {
+                                    "on": "Id",
+                                    "select": ["id", "name"]
+                                },
+                                "FactureItem": {
+                                    "on": "factureId",
+                                    "select": {
+                                        "id": "itemId",
+                                        "createdAt": "itemCreatedAt"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "query": {
+                        "GetApplicationByPolicy": {
+                            "source": "Application",
+                            "operation": "findByPolicy",
+                            "multipleResult": true,
+                            "execute": ["select e from ApplicationEntity e where e.policy = :policy"],
+                            "params": [],
+                            "set": {},
+                            "populate": ["*"],
+                            "without": [],
+                            "api": {
+                                "rest": {
+                                    "path": "/list/{policy}",
+                                    "produces": "application/json",
+                                    "method": "GET",
+                                    "parameters": ["policy"],
+                                    "multipleEntries": false,
+                                    "set": {}
+                                },
+                                "soap": {}
+                            }
+                        }
+                    }
+                }
+            },
+            "services-evolution": {
+                "query": {
+                    "GetApplicationDetails": {
+                        "operation": {
+                            "Application": {
+                                "findById": {
+                                    "populates": {
+                                        "id": "applicationId",
+                                        "*": null
+                                    },
+                                    "without": [],
+                                    "set": {},
+                                    "multipleEntries": false,
+                                    "params": ["id"],
+                                    "execute": "select e from Application e where id = :id"
+                                }
+                            },
+                            "Subscription": {
+                                "findByApplicationId": {
+                                    "populates": ["*"],
+                                    "without": [],
+                                    "set": {},
+                                    "multipleEntries": true,
+                                    "params": ["applicationId"],
+                                    "execute": "select e from Subscription e where applicationId = :applicationId",
+                                    "as": "Subscriptions"
+                                }
+                            }
+                        },
+                        "api": {
+                            "rest": {
+                                "path": "/details/{id}",
+                                "produces": "application/json",
+                                "consumes": "application/json",
+                                "method": "GET",
+                                "multipleEntries": false,
+                                "set": {
+
+                                }
+                            }
+                        },
+                        "soap": {
+
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+}

@@ -1,0 +1,66 @@
+<%
+
+function createDirectory(path){
+    var dirs = path.split("/");
+    var currentDir = "";
+    for(var i=0; i < dirs.length; i++){
+        if(dirs[i].trim().length > 0){
+            currentDir += "/"+dirs[i];
+            var file = new File(currentDir);
+            if(!file.isDirectory()) file.mkdir();
+            file.close();
+        }
+    }
+}
+
+
+function generateFiles(configFilePath) {
+    var log = new Log();
+    var config = require(configFilePath);
+    var helper = require("/common/utils.jag");
+    //log.info("=====> helper: "+stringify(helper));
+    var server = require("/server/core/contentGenerator.jag");
+    
+
+    log.info(stringify(config.files));
+
+    if (Array.isArray(config.files) && config.files.length > 0) {
+        //log.info("===========> config files: "+stringify(config.files));
+        for (var i = 0, filePath; filePath = config.files[i]; i++) {
+            var projectConfig = require(filePath);
+            //log.info("=====> config: "+stringify(config));
+            //log.info("=====> project config: "+stringify(projectConfig));
+            config = helper.mergeEntries(config, projectConfig, true);
+            //log.info("=====> config: "+stringify(config));
+        }
+    }
+
+    var result = server.generateContents(config);
+    //log.info("===========> results: "+stringify(result));
+
+    if (result == null || result.projects == null ||
+        !Array.isArray(result.projects) || result.projects.length <= 0)
+        return result;
+
+    for (var i = 0, project; project = result.projects[i]; i++) {
+        if (!Array.isArray(project.files)) continue;
+        if (project.files.length <= 0) continue;
+        for (var j = 0, file; file = project.files[j]; j++) {
+            createDirectory(file.folder);
+            var f = new File(file.filePath);
+            f.open("w+");
+            if (file.content.length > 0) {
+                for (var k = 0, line; line = file.content[k]; k++) {
+                    f.write(line);
+                    if (k > 0) f.write("\n");
+                }
+            }
+            f.close();
+        }
+    }
+
+    return result;
+
+}
+
+%>

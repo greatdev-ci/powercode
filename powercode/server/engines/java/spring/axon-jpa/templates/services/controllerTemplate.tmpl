@@ -1,0 +1,47 @@
+package {{: output.controller.package}};
+
+{{for output.controller.dependencies}}import {{:#data}};
+{{/for}}
+@RestController
+@CrossOrigin("*")
+@RequestMapping(value="{{: output.controller.baseRestApiPath}}")
+public class {{: output.controller.className}}{
+	
+	@Autowired
+	private {{: output.repository.className}} repository;
+    
+    {{for queries}}{{if api != null && api.rest != null}}
+    @RequestMapping(value="{{: api.rest.path}}", method=RequestMethod.{{: api.rest.method}}{{if api.rest.consumes != null}}  , consumes={"{{: api.rest.consumes}}"}{{/if}}{{if api.rest.produces != null}}  , produces={"{{: api.rest.produces}}"}{{/if}} )
+    public Response<{{: output.responseDto.className}}> {{: name}}( {{for api.rest.properties}}{{if #index > O}},{{/if}} @PathVariable {{: baseType}} {{: key}} {{/for}}{{if api.rest.properties.length > 0 && (api.rest.header.length > 0 || api.rest.body.length > 0) }},{{/if}}{{for api.rest.header}}{{if #index > O}},{{/if}} @HeaderVariable {{: baseType}} {{: key}} {{/for}}{{if api.rest.header.length > 0 && api.rest.body.length > 0}},{{/if}}{{if api.rest.body.length > 0}} @RequestBody {{: output.restRequestDto.className}} request{{/if}}){
+    	
+    	Response<{{: output.responseDto.className}}> response = new Response<{{: output.responseDto.className}}> ();
+		try{
+
+			{{if multipleResult}}List<{{: ~root.output.entity.className}}> entityList{{else}}{{: ~root.output.entity.className}} entity{{/if}} = {{if operation == "::create"}}new {{: ~root.output.entity.className}}(){{else operation == "::update" || operation == "::delete"}} repository.findById({{: ~root.output.entity.identifier.key}}){{else}} repository.{{: operation}}({{for params}}{{if #index > 0}},{{/if}} {{:key}} {{/for}}) {{/if}};
+            
+            {{if operation == "::create" || operation == "::update"}}{{for api.rest.header}}{{if key != ~root.output.entity.identifier.key}}entity.{{: ~root.output.controller.getPropertySetterName(#data.key)}}(key);{{/if}}
+            {{/for}}{{for api.rest.properties}}{{if key != ~root.output.entity.identifier.key}}entity.{{: ~root.output.controller.getPropertySetterName(#data.key)}}(key);{{/if}}
+            {{/for}}{{if api.rest.body.length > 0}}request.populateEntity(entity);
+            {{if api.rest.sets.length > 0}}{{for api.rest.sets}}entity.{{: ~root.output.controller.getPropertySetterName(#data.key)}}({{: value}});{{/for}}{{/if}}
+            {{/if}}{{: ~root.output.entity.className}} entitySaved =  repository.save(entity);{{else operation == "::delete"}}repository.delete(entity);
+            entity.setIsDeleted(true);
+			entity.setDeletedAt(new Date());{{/if}}
+
+			{{: output.responseDto.className}} result = new {{: output.responseDto.className}}();
+            {{if multipleResult}}result.populateFrom(entityList){{else operation == "::create" || operation == "::update"}}result.populateFrom(entitySaved){{else}}result.populateFrom(entity){{/if}};
+            {{if sets.length > 0}}{{for sets}}result.{{: ~root.output.controller.getPropertySetterName(#data.key)}}({{: value}});{{/for}}{{/if}}
+			response.setData(result);
+			response.setOk(true);
+			response.setCustomMessage("Opération exécutée avec succès");
+			
+		}catch(Exception ex){
+			response.setOk(false);
+			response.setSystemMessage(ex.getMessage());
+			response.setCustomMessage("Echec de l'opération!");
+		}
+		return response;
+		
+    }
+    {{/if}}{{/for}}
+    
+}

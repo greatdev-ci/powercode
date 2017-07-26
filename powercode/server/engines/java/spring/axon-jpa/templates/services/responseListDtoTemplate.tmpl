@@ -1,0 +1,29 @@
+package {{: output.responseDto.package}};
+
+{{for output.responseDto.dependencies}}import {{:#data}};
+{{/for}}import java.util.List;
+import {{: output.responseDto.package}}.{{:output.responseDto.itemClassName}};
+
+@JsonInclude(Include.NON_NULL)
+public class {{: output.responseDto.listClassName}} {
+	
+    private List<{{: output.responseDto.itemClassName}}> items;
+
+	public void populateFrom(List<{{: output.entity.className}}> entityList){
+        if(this.items == null) this.items = new ArrayList<{{: output.responseDto.itemClassName}}>();
+        for({{: output.entity.className}} entity : entityList){
+            {{: output.responseDto.itemClassName}} item = new {{: output.responseDto.itemClassName}}();
+            item.populateFrom(entity);
+            this.items.add(item);
+        }
+	} 
+
+    public List<{{: output.responseDto.itemClassName}}> getItems(){
+        return this.items;
+    }
+
+    public void setItems(List<{{: output.responseDto.itemClassName}}> items){
+        this.items = items;
+    }
+	
+}

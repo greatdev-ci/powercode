@@ -1,0 +1,19 @@
+package {{: output.repository.package}};
+
+{{for output.repository.dependencies}}import {{: #data}};
+{{/for}}
+
+@Repository
+public interface {{:output.repository.className}} extends JpaRepository<{{:output.entity.className}}, {{: getIdentifier().baseType }}>{
+    
+    {{for queries}}{{if operation != "::create" && operation != "::update" && operation != "::delete" && operation != "findAll" && operation != null}}@Query(""
+        {{for execute}}+ "{{: #data}}"
+    {{/for}}+ " ") {{if multipleResult}}
+    List<{{: ~root.output.entity.className}}> {{:operation}}( {{for params}}{{if #index > 0}},{{/if}} @Param("{{:key}}") {{:type}} {{:key}}{{/for}}); {{else}}
+    {{: ~root.output.entity.className}} {{:operation}}( {{for params}}{{if #index > 0}},{{/if}} @Param("{{:key}}") {{:type}} {{:key}}{{/for}});
+    {{/if}} 
+    
+    {{/if}}{{/for}}
+    
+    
+}

@@ -1,0 +1,18 @@
+{
+    "enum": "/server/engines/java/spring/axon-jpa/templates/enumTemplate.tmpl",
+    "services": {
+        "entity": "/server/engines/java/spring/axon-jpa/templates/services/entityTemplate.tmpl",
+        "repository": "/server/engines/java/spring/axon-jpa/templates/services/repositoryTemplate.tmpl",
+        "controller": "/server/engines/java/spring/axon-jpa/templates/services/controllerTemplate.tmpl",
+        "restRequestDto": "/server/engines/java/spring/axon-jpa/templates/services/restRequestDtoTemplate.tmpl",
+        "responseDto": "/server/engines/java/spring/axon-jpa/templates/services/responseDtoTemplate.tmpl",
+        "responseListDto": "/server/engines/java/spring/axon-jpa/templates/services/responseListDtoTemplate.tmpl"
+    },
+    "clients": {
+        "jaggery": "/server/engines/java/spring/axon-jpa/templates/client/jaggeryClientTemplate.tmpl"
+    },
+    "domain": {},
+    "pathVars": [
+        "project", "service", "source", "query"
+    ]
+}

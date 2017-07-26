@@ -1,0 +1,22 @@
+{
+    "projects": {
+        "openapi": {
+            "enums": {
+                "BillingTypes": {
+                    "FREE": "1",
+                    "PREPAID": "2",
+                    "POSTPAID": "3"
+                },
+                "Tiers": {
+                    "APPLICATION": "1",
+                    "SUBSCRIPTION": "2"
+                },
+                "ActivationStatus": {
+                    "NOT_ACTIVATED": "1",
+                    "ACTIVATED": "2",
+                    "DISABLED": "3"
+                }
+            }
+        }
+    }
+}

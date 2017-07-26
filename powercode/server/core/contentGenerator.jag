@@ -1,0 +1,38 @@
+<%
+
+function generateContents(config) {
+    var log = new Log();
+    //log.info(stringify(config));
+    var result = { projects: [] };
+    if (config.projects == null || config.engines == null) return result;
+
+    var entryProvider = require("/server/core/entryProvider.jag");
+    var engineRegistry = require("/server/engines/engines.json");
+
+    var entries = entryProvider.getProjectEntries(config.projects);
+    //log.info("=======++++++++++>>>>> entries: "+stringify(entries));
+    if (entries.length <= 0) return result;
+
+    //log.info("=======++++++++++>>>>> engines: "+stringify(config.engines));
+    for (var i = 0, entry; entry = entries[i]; i++) {
+        for (var engineConfigFor in config.engines) {
+            if (config.engines.hasOwnProperty(engineConfigFor) && engineConfigFor == entry.name) {
+                //log.info("=======++++++++++>>>>> for project: "+stringify(engineConfigFor));
+                if (engineRegistry.hasOwnProperty(config.engines[engineConfigFor].engine)) {
+                    var engine = require(engineRegistry[config.engines[engineConfigFor].engine]);
+                    //log.info("=======++++++++++>>>>> engine: "+stringify(engine));
+                    var project = {
+                        name: entry.name,
+                        files: engine.generateFiles(entry, config.engines[engineConfigFor])
+                    };
+                    result.projects.push(project);
+                }
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+%>

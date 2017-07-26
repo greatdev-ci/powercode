@@ -1,0 +1,32 @@
+package {{: output.restRequestDto.package}};
+
+{{for output.restRequestDto.dependencies}}import {{:#data}};
+{{/for}}
+
+@JsonInclude(Include.NON_NULL)
+public class {{: output.restRequestDto.className}} {
+	
+    {{for api.rest.body}}
+    private {{:baseType}} {{:key}};
+    {{/for}}
+
+
+	public void populateEntity({{: output.entity.className}} entity){
+		{{for api.rest.body}}entity.{{: ~root.output.restRequestDto.getPropertySetterName(#data.key)}}(this.{{: #data.key}});
+		{{/for}}
+	} 
+
+    {{for api.rest.body}}
+    public {{:type}} {{: ~root.output.restRequestDto.getPropertyGetterName(#data.key)}}() {
+       return {{:key}};
+    }
+    {{/for}}
+
+
+    {{for api.rest.body}}
+    public void {{: ~root.output.restRequestDto.getPropertySetterName(#data.key) }}({{:type}} {{:key}}) {
+        this.{{:key}} = {{:key}};
+    }
+    {{/for}}
+	
+}

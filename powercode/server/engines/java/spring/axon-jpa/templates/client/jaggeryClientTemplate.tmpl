@@ -1,0 +1,25 @@
+<%
+{{for services}}{{for getQueries()}}{{if api != null && api.rest != null}}
+function {{: name}}({{for api.rest.properties}}{{if #index > 0}},{{/if}} {{: key}}{{/for}}{{if api.rest.properties.length > 0 && (api.rest.header.length > 0 || api.rest.body.length > 0)}},{{/if}}{{for api.rest.header}}{{if #index > 0}},{{/if}} {{: key}}{{/for}}{{if api.rest.header.length > 0 && api.rest.body.length > 0}},{{/if}}{{for api.rest.body}}{{if #index > 0}},{{/if}} {{: key}}{{/for}} ){
+    var path = {{: ~root.output.className}}.endpoint + "{{: output.baseRestApiPath}}{{: output.restPath}}";
+    {{if api.rest.body.length > 0}}var data = stringify({ {{for api.rest.body}}{{if #index > 0}},{{/if}}
+        "{{: key}}": {{: key}}{{/for}}
+    });{{/if}}
+    var queryResult = {{if api.rest.method == "GET"}}get{{else api.rest.method == "POST"}}post{{else api.rest.method == "PUT"}}put{{else api.rest.method == "DELETE"}}del{{/if}}(
+        path, {{if api.rest.body.length > 0}}data,{{/if}}
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        }, 
+        'json'
+    );
+    return queryResult;
+}
+{{/if}}{{/for}}{{/for}}
+
+var {{: output.className}} = {
+    endpoint: "http://localhost:8080",{{for services}}{{for getQueries()}}{{if #index > 0}},{{/if}}{{if api != null && api.rest != null}}
+    {{: name}}: {{: name}}{{/if}}{{/for}}{{/for}}
+}
+
+%>

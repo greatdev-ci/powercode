@@ -1,0 +1,30 @@
+<%
+
+
+    var log = new Log();
+
+    var fileGenerator = require("/client/fileGenerator.jag");
+
+    var result = fileGenerator.generateFiles("/projects/openapi/config.json");
+    var output = "";
+    if (result == null || result.projects == null ||
+        !Array.isArray(result.projects) || result.projects.length <= 0){
+        output = "<h3>Sorry, no file was generated! Please, check your configurations!</h3>"
+    }else{
+        for(var i=0, project; project = result.projects[i]; i++){
+            output += "<p><h2>"+project.name+"</h2>";
+            for(var j=0; j< project.files.length; j++){
+                output += '<div>'+project.files[j].filePath+'</div><pre><code class="hljs java">';
+                for(var k=0; k<project.files[j].content.length; k++){
+                    output += project.files[j].content[k].replace('<','&lt;').replace('>','&gt;') + "</br>" ;
+                }
+                output += "</code></pre>";
+            }
+            output += "</p>";
+        }
+    }
+
+    //log.info(output);
+    print(output);
+
+%>

@@ -1,0 +1,451 @@
+<%
+
+var helper = require("/common/utils.jag");
+var jsrender = require("/server/lib/jsrender.jag");
+var log = new Log();
+var dependenceMap = {
+    "Date": "java.util.Date"
+}
+
+function generateCode(templateFilePath, entry) {
+    var templateFile = new File(templateFilePath);
+    templateFile.open("r");
+    var templateString = templateFile.readAll();
+    templateFile.close();
+    var template = jsrender.templates(templateString);
+    return template.render(entry);
+}
+
+function getRealPath(path, values){
+    var result = path;
+    for(var pathVar in values){
+        if(values.hasOwnProperty(pathVar)){
+            if(typeof values[pathVar] === "string" && values[pathVar].trim().length > 0){
+                result = result.replace("{"+pathVar+"}", values[pathVar]);
+                result = result.replace("{"+pathVar+"%upper}", values[pathVar].toUpperCase());
+                result = result.replace("{"+pathVar+"%lower}", values[pathVar].toLowerCase());
+                result = result.replace("{"+pathVar+"%upper-first}", values[pathVar][0].toUpperCase()+values[pathVar].slice(1));
+            }
+        }
+    }
+    return result;
+}
+
+function getEnumFileEntry(entry, config, template, pathValues){
+    pathValues["enum"] = entry.name;
+    var fileEntry = {};
+    entry.output = {};
+    entry.output.className = getRealPath(config.output.enums.className, pathValues);
+    entry.output.package = getRealPath(config.output.package + '.' + config.output.enums.package, pathValues);
+    dependenceMap[entry.output.className] = entry.output.package + '.' + entry.output.className;
+
+    fileEntry.fileName = entry.output.className + config.output.enums.extension;
+    fileEntry.folder = config.output.MakeFolderFromPackage 
+                            ? entry.output.package.split('.').join('/')
+                            : getRealPath(config.output.folder + config.output.enums.folder, pathValues);
+    fileEntry.filePath = getRealPath(fileEntry.folder + "/" + fileEntry.fileName, pathValues);
+    fileEntry.content = [generateCode(template, entry)];
+    return fileEntry;
+}
+
+function getEntityFileEntry(entry, config, template, pathValues){
+    pathValues["entity"] = entry.key;
+    pathValues["table"] = entry.name;
+    var fileEntry = {};
+    entry.output = {};
+    entry.output.entity = {};
+    entry.output.entity.className = getRealPath(config.output.services.entity.className, pathValues);
+    entry.output.entity.package = getRealPath(config.output.package + '.' + config.output.services.entity.package, pathValues);
+    
+    entry.output.entity.getPropertyGetterName = function(property){
+        return "get"+property[0].toUpperCase()+property.slice(1);
+    }
+    entry.output.entity.getPropertySetterName = function(property){
+        return "set"+property[0].toUpperCase()+property.slice(1);
+    }
+    
+    entry.output.entity.dependencies = [
+        "java.io.Serializable",
+        "javax.persistence.Column",
+        "javax.persistence.Entity",
+        "javax.persistence.GeneratedValue",
+        "javax.persistence.GenerationType",
+        "javax.persistence.Id",
+        "javax.persistence.Temporal",
+        "javax.persistence.TemporalType",
+        "javax.persistence.Table"
+    ];
+    
+    for(var dependenceKey in dependenceMap){
+        if(dependenceMap.hasOwnProperty(dependenceKey)){
+            if(entry.properties.find(function(p){ return p.type == dependenceKey }) != null ){
+                if(entry.output.entity.dependencies.find(function(item){ return item == dependenceMap[dependenceKey] }) == null){
+                    entry.output.entity.dependencies.push(dependenceMap[dependenceKey]);
+                }
+            }
+        }
+    }
+    dependenceMap[entry.output.entity.className] = entry.output.entity.package + '.' + entry.output.entity.className;
+
+
+    fileEntry.fileName = entry.output.entity.className + config.output.services.entity.extension;
+    fileEntry.folder = config.output.MakeFolderFromPackage 
+                            ? entry.output.entity.package.split('.').join('/')
+                            : getRealPath(config.output.folder + config.output.services.entity.folder, pathValues);
+    fileEntry.filePath = getRealPath(fileEntry.folder + "/" + fileEntry.fileName, pathValues);
+    fileEntry.content = [generateCode(template, entry)];
+    return fileEntry;
+}
+
+function getRepositoryFileEntry(entry, config, template, pathValues){
+    pathValues["repository"] = entry.key;
+    pathValues["entity"] = entry.key;
+    pathValues["table"] = entry.name;
+    var fileEntry = {};
+    entry.output = {};
+    entry.output.entity = {};
+    entry.output.entity.className = getRealPath(config.output.services.entity.className, pathValues);
+    entry.output.entity.package = getRealPath(config.output.package + '.' + config.output.services.entity.package, pathValues);
+    entry.output.repository = {};
+    entry.output.repository.className = getRealPath(config.output.services.repository.className, pathValues);
+    entry.output.repository.package = getRealPath(config.output.package + '.' + config.output.services.repository.package, pathValues);
+
+    
+    entry.output.repository.dependencies = [
+        "org.springframework.data.jpa.repository.JpaRepository",
+        "org.springframework.data.jpa.repository.Query",
+        "org.springframework.data.repository.query.Param",
+        "org.springframework.stereotype.Repository",
+        entry.output.entity.package + '.' + entry.output.entity.className
+    ];
+
+    dependenceMap[entry.output.repository.className] = entry.output.repository.package + '.' + entry.output.repository.className;
+
+
+    fileEntry.fileName = entry.output.repository.className + config.output.services.repository.extension;
+    fileEntry.folder = config.output.MakeFolderFromPackage 
+                            ? entry.output.repository.package.split('.').join('/')
+                            : getRealPath(config.output.folder + config.output.services.repository.folder, pathValues);
+    fileEntry.filePath = getRealPath(fileEntry.folder + "/" + fileEntry.fileName, pathValues);
+    fileEntry.content = [generateCode(template, entry)];
+    return fileEntry;
+}
+
+function getRestRequestDtoFileEntry(entry, config, template, pathValues){
+    pathValues["query"] = entry.name;
+    var fileEntry = {};
+    entry.output = {};
+    entry.output.entity = {};
+    entry.output.entity.className = getRealPath(config.output.services.entity.className, pathValues);
+    entry.output.entity.package = getRealPath(config.output.package + '.' + config.output.services.entity.package, pathValues);
+    
+    entry.output.restRequestDto = {};
+    entry.output.restRequestDto.className = getRealPath(config.output.services.restRequestDto.className, pathValues);
+    entry.output.restRequestDto.package = getRealPath(config.output.package + '.' + config.output.services.restRequestDto.package, pathValues);
+    
+    
+    entry.output.restRequestDto.getPropertyGetterName = function(property){
+        return "get"+property[0].toUpperCase()+property.slice(1);
+    }
+    entry.output.restRequestDto.getPropertySetterName = function(property){
+        return "set"+property[0].toUpperCase()+property.slice(1);
+    }
+    
+    entry.output.restRequestDto.dependencies = [
+        "com.fasterxml.jackson.annotation.JsonInclude",
+        "com.fasterxml.jackson.annotation.JsonInclude.Include",
+        entry.output.entity.package + "." + entry.output.entity.className
+    ];
+
+    dependenceMap[entry.output.restRequestDto.className] = entry.output.restRequestDto.package + "." + entry.output.restRequestDto.className;
+    
+    for(var dependenceKey in dependenceMap){
+        if(dependenceMap.hasOwnProperty(dependenceKey)){
+            if(entry.api.rest.body.find(function(p){ return p.type == dependenceKey }) != null ){
+                if(entry.output.restRequestDto.dependencies.find(function(item){ return item == dependenceMap[dependenceKey] }) == null){
+                    entry.output.restRequestDto.dependencies.push(dependenceMap[dependenceKey]);
+                }
+            }
+        }
+    }
+
+
+    fileEntry.fileName = entry.output.restRequestDto.className + config.output.services.restRequestDto.extension;
+    fileEntry.folder = config.output.MakeFolderFromPackage 
+                            ? entry.output.restRequestDto.package.split('.').join('/')
+                            : getRealPath(config.output.folder + config.output.services.restRequestDto.folder, pathValues);
+    fileEntry.filePath = getRealPath(fileEntry.folder + "/" + fileEntry.fileName, pathValues);
+    fileEntry.content = [generateCode(template, entry)];
+    return fileEntry;
+}
+
+function getResponseDtoFileEntry(entry, config, template, pathValues, generateItem){
+    pathValues["query"] = entry.name;
+    var fileEntry = {};
+    entry.output = {};
+    entry.output.entity = {};
+    entry.output.entity.className = getRealPath(config.output.services.entity.className, pathValues);
+    entry.output.entity.package = getRealPath(config.output.package + '.' + config.output.services.entity.package, pathValues);
+    
+    entry.output.responseDto = {};
+    entry.output.responseDto.className = getRealPath(config.output.services.responseDto.className, pathValues);
+    entry.output.responseDto.listClassName = getRealPath(config.output.services.responseDto.className, pathValues);
+    entry.output.responseDto.itemClassName = getRealPath(config.output.services.responseDto.itemClassName, pathValues);
+    if(entry.multipleResult) entry.output.responseDto.className = entry.output.responseDto.itemClassName;
+    entry.output.responseDto.package = getRealPath(config.output.package + '.' + config.output.services.responseDto.package, pathValues);
+    
+    
+    entry.output.responseDto.getPropertyGetterName = function(property){
+        return "get"+property[0].toUpperCase()+property.slice(1);
+    }
+    entry.output.responseDto.getPropertySetterName = function(property){
+        return "set"+property[0].toUpperCase()+property.slice(1);
+    }
+    
+    entry.output.responseDto.dependencies = [
+        "com.fasterxml.jackson.annotation.JsonInclude",
+        "com.fasterxml.jackson.annotation.JsonInclude.Include",
+        entry.output.entity.package + "." + entry.output.entity.className
+    ];
+
+    dependenceMap[entry.output.responseDto.className] = entry.output.responseDto.package + "." + entry.output.responseDto.className;
+    if(entry.multipleResult)  dependenceMap[entry.output.responseDto.listClassName] = entry.output.responseDto.package + "." + entry.output.responseDto.listClassName;
+    
+    for(var dependenceKey in dependenceMap){
+        if(dependenceMap.hasOwnProperty(dependenceKey)){
+            if(entry.properties.find(function(p){ return p.type == dependenceKey }) != null ){
+                if(entry.output.responseDto.dependencies.find(function(item){ return item == dependenceMap[dependenceKey] }) == null){
+                    entry.output.responseDto.dependencies.push(dependenceMap[dependenceKey]);
+                }
+            }
+        }
+    }
+
+
+    fileEntry.fileName = ( (generateItem && entry.multipleResult ) 
+                            ? entry.output.responseDto.className 
+                            : entry.output.responseDto.listClassName ) 
+                            + config.output.services.responseDto.extension;
+    fileEntry.folder = config.output.MakeFolderFromPackage 
+                            ? entry.output.responseDto.package.split('.').join('/')
+                            : getRealPath(config.output.folder + config.output.services.responseDto.folder, pathValues);
+    fileEntry.filePath = getRealPath(fileEntry.folder + "/" + fileEntry.fileName, pathValues);
+    fileEntry.content = [generateCode(template, entry)];
+    return fileEntry;
+}
+
+function getControllerFileEntry(entry, config, template, pathValues){
+    pathValues["controller"] = entry.key;
+    pathValues["source"] = entry.key;
+    var fileEntry = {};
+    entry.output = {};
+    entry.output.entity = {};
+    entry.output.entity.className = getRealPath(config.output.services.entity.className, pathValues);
+    entry.output.entity.package = getRealPath(config.output.package + '.' + config.output.services.entity.package, pathValues);
+    entry.output.entity.identifier = entry.getIdentifier();
+    
+    entry.output.repository = {};
+    entry.output.repository.className = getRealPath(config.output.services.repository.className, pathValues);
+    entry.output.repository.package = getRealPath(config.output.package + '.' + config.output.services.repository.package, pathValues);
+
+    entry.output.controller = {};
+    entry.output.controller.className = getRealPath(config.output.services.controller.className, pathValues);
+    entry.output.controller.package = getRealPath(config.output.package + '.' + config.output.services.controller.package, pathValues);
+    entry.output.controller.baseRestApiPath = getRealPath(config.output.services.controller.baseRestApiPath, pathValues);
+
+    entry.output.controller.getPropertyGetterName = function(property){
+        return "get"+property[0].toUpperCase()+property.slice(1);
+    }
+    entry.output.controller.getPropertySetterName = function(property){
+        return "set"+property[0].toUpperCase()+property.slice(1);
+    }
+
+    entry.output.controller.dependencies = [
+        "org.springframework.beans.factory.annotation.Autowired",
+        "org.springframework.web.bind.annotation.CrossOrigin",
+        "org.springframework.web.bind.annotation.PathVariable",
+        "org.springframework.web.bind.annotation.RequestBody",
+        "org.springframework.web.bind.annotation.RequestMapping",
+        "org.springframework.web.bind.annotation.RestController",
+        "org.springframework.web.bind.annotation.RequestMethod",
+        entry.output.entity.package + "." + entry.output.entity.className
+    ];
+
+    var addListDependencies = false;
+
+    for(var i=0, queryEntry; queryEntry = entry.queries[i]; i++){
+        pathValues["query"] = queryEntry.name;
+        queryEntry.output.responseDto = {};
+        queryEntry.output.responseDto.className = getRealPath(config.output.services.responseDto.className, pathValues);
+        queryEntry.output.responseDto.package = getRealPath(config.output.package + '.' + config.output.services.responseDto.package, pathValues);
+        
+        queryEntry.output.restRequestDto = {};
+        queryEntry.output.restRequestDto.className = getRealPath(config.output.services.restRequestDto.className, pathValues);
+        queryEntry.output.restRequestDto.package = getRealPath(config.output.package + '.' + config.output.services.restRequestDto.package, pathValues);
+        
+        entry.output.controller.dependencies.push(queryEntry.output.responseDto.package + "." + queryEntry.output.responseDto.className);
+        if(queryEntry.api.rest != null && queryEntry.api.rest.body.length > 0){
+            entry.output.controller.dependencies.push(queryEntry.output.restRequestDto.package + "." + queryEntry.output.restRequestDto.className);
+        }
+        if(queryEntry.multipleResult) addListDependencies = true;
+    }
+
+    if(addListDependencies) entry.output.controller.dependencies.push("java.util.List");
+    
+    //dependenceMap[entry.output.controller.className] = entry.output.responseDto.package + "." + entry.output.responseDto.className;
+    
+    for(var dependenceKey in dependenceMap){
+        if(dependenceMap.hasOwnProperty(dependenceKey)){
+            if(entry.properties.find(function(p){ return p.type == dependenceKey }) != null ){
+                if(entry.output.controller.dependencies.find(function(item){ return item == dependenceMap[dependenceKey] }) == null){
+                    entry.output.controller.dependencies.push(dependenceMap[dependenceKey]);
+                }
+            }
+        }
+    }
+
+
+    fileEntry.fileName = entry.output.controller.className + config.output.services.controller.extension;
+    fileEntry.folder = config.output.MakeFolderFromPackage 
+                            ? entry.output.controller.package.split('.').join('/')
+                            : getRealPath(config.output.folder + config.output.services.controller.folder, pathValues);
+    fileEntry.filePath = getRealPath(fileEntry.folder + "/" + fileEntry.fileName, pathValues);
+    fileEntry.content = [generateCode(template, entry)];
+    return fileEntry;
+}
+
+function getRestClientFileEntry(entry, config, template, pathValues){
+    pathValues["client"] = entry.name;
+    pathValues["clientType"] = entry.type;
+    pathValues["project"] = entry.project;
+    pathValues["apiType"] = "REST";
+    var fileEntry = {};
+    entry.output = {};
+    entry.output.className = getRealPath(config.output.clients[entry.type].className, pathValues);
+    entry.output.package = getRealPath(config.output.package + '.' + config.output.clients[entry.type].package, pathValues);
+
+    for(var i=0, serviceEntry; serviceEntry = entry.services[i]; i++){
+        if(serviceEntry.type="datastorage"){
+            for(var j=0, sourceEntry; sourceEntry = serviceEntry.sources[j]; j++){
+                for(var k=0, queryEntry; queryEntry = sourceEntry.queries[k]; k++){
+                    if(queryEntry.api != null && queryEntry.api.rest != null){
+                        pathValues["service"] = serviceEntry.name; 
+                        pathValues["source"] = sourceEntry.key; 
+                        pathValues["entity"] = sourceEntry.key; 
+                        pathValues["controller"] = sourceEntry.key; 
+                        pathValues["repository"] = sourceEntry.key; 
+                        pathValues["table"] = sourceEntry.name; 
+                        pathValues["query"] = queryEntry.key; 
+                        queryEntry.output = {};
+                        queryEntry.output.baseRestApiPath = getRealPath(config.output.services.controller.baseRestApiPath, pathValues);
+                        if(queryEntry.api.rest.properties.length > 0){
+                            for(var n=0, property; property = queryEntry.api.rest.properties[n]; n++){
+                                queryEntry.output.baseRestApiPath = queryEntry.output.baseRestApiPath.replace("{"+property.key+"}",'"+ '+property.key+' +"');
+                                queryEntry.output.restPath = queryEntry.api.rest.path.replace("{"+property.key+"}",'"+ '+property.key+' +"');
+                            }
+                        }else{
+                            queryEntry.output.baseRestApiPath = queryEntry.output.baseRestApiPath;
+                            queryEntry.output.restPath = queryEntry.api.rest.path;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //entry.output.controller.baseRestApiPath = getRealPath(config.output.services.controller.baseRestApiPath, pathValues);
+    //dependenceMap[entry.output.className] = entry.output.package + '.' + entry.output.className;
+    entry.output.client  = {};
+    entry.output.client.dependencies = [];
+
+    fileEntry.fileName = entry.output.className + config.output.clients[entry.type].extension;
+    fileEntry.folder = config.output.MakeFolderFromPackage 
+                            ? entry.output.package.split('.').join('/')
+                            : getRealPath(config.output.folder + config.output.clients[entry.type].folder, pathValues);
+    fileEntry.filePath = getRealPath(fileEntry.folder + "/" + fileEntry.fileName, pathValues);
+    fileEntry.content = [generateCode(template, entry)];
+    return fileEntry;
+}
+
+
+function generateFiles(entry, config) {
+    var result = [];
+    var defaultConfig = require("/server/engines/java/spring/axon-jpa/default.json");
+    var templatesConfig = require("/server/engines/java/spring/axon-jpa/templatesConfig.json");
+    if (config == null) config = {};
+    config = helper.mergeEntries(config, defaultConfig, false);
+    var pathValues = {
+        "project": entry.name
+    };
+
+    //generate enums
+    if(config.output.enums.extension == null) config.output.enums.extension = config.output.extension;
+    if (entry.enums.length > 0) {
+        for (var i = 0, enumEntry; enumEntry = entry.enums[i]; i++) {
+            result.push(getEnumFileEntry(enumEntry, config, templatesConfig.enum, pathValues));
+        }
+    }
+
+    //generate domain
+
+    //generate services
+    if(entry.services.length > 0){
+        for(var i=0, serviceEntry; serviceEntry = entry.services[i]; i++){
+            pathValues["service"] = serviceEntry.name;
+            if (serviceEntry.sources.length > 0) {
+                if(config.output.services.entity.extension == null) 
+                    config.output.services.entity.extension = config.output.extension;
+                if(config.output.services.repository.extension == null) 
+                    config.output.services.repository.extension = config.output.extension;
+                if(config.output.services.controller.extension == null) 
+                    config.output.services.controller.extension = config.output.extension;
+                if(config.output.services.restRequestDto.extension == null) 
+                    config.output.services.restRequestDto.extension = config.output.extension;
+                if(config.output.services.responseDto.extension == null) 
+                    config.output.services.responseDto.extension = config.output.extension;
+                for (var j = 0, sourceEntry; sourceEntry = serviceEntry.sources[j]; j++) {
+                    pathValues["source"] = sourceEntry.key;
+                    //generate entities
+                    result.push(getEntityFileEntry(sourceEntry, config, templatesConfig.services.entity, pathValues));
+                    //generate repositories
+                    result.push(getRepositoryFileEntry(sourceEntry, config, templatesConfig.services.repository, pathValues));
+                    for(var k=0, queryEntry; queryEntry = sourceEntry.queries[k]; k++){
+                        pathValues["query"] = queryEntry.name;
+                        //generate response dtos or response item dto
+                        result.push(getResponseDtoFileEntry(queryEntry, config, templatesConfig.services.responseDto, pathValues, true));
+                        //generate response list dtos
+                        if(queryEntry.multipleResult) result.push(getResponseDtoFileEntry(queryEntry, config, templatesConfig.services.responseListDto, pathValues, false));
+                        if(queryEntry.api != null){
+                            if(queryEntry.api.rest != null && queryEntry.api.rest.body.length > 0){
+                                //generate rest request dtos
+                                result.push(getRestRequestDtoFileEntry(queryEntry, config, templatesConfig.services.restRequestDto, pathValues));
+                            }
+                        }
+                    }
+                    //generate controllers
+                    result.push(getControllerFileEntry(sourceEntry, config, templatesConfig.services.controller, pathValues));
+                }
+            }
+        }
+    }
+    
+    //generate clients
+    entry.clients = [
+        {
+            name:"marketingClient",
+            type:"jaggery",
+            project: entry.name,
+            services: entry.services
+        }
+    ];
+    if(entry.clients.length > 0){
+        for(var i=0, clientEntry; clientEntry = entry.clients[i]; i++){
+            //generate rest clients
+            result.push(getRestClientFileEntry(clientEntry, config, templatesConfig.clients[clientEntry.type], pathValues));
+        }
+    }
+
+    return result;
+}
+
+%>

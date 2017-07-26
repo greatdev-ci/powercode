@@ -1,0 +1,760 @@
+<%
+
+
+require("/common/ArrayUtils.js");
+
+var helper = require("/common/utils.jag");
+
+/*------------------------------------------------------------------*/
+//globals 
+
+var globals = {
+
+};
+
+/*------------------------------------------------------------------*/
+
+//concepts
+function getPropertyEntry(name, config) {
+    var entry = {
+        key: name,
+        name: name,
+        type: 'String',
+        baseType: 'String',
+        multiple: false,
+        generate: null,
+        isIdentifier: false,
+        validations: [],
+        properties: []
+    }
+
+    if (typeof config === "string") {
+        entry.type = entry.baseType = config;
+    } else {
+        helper.populateEntry(entry, config, [
+            { from: "multiple", type: "boolean", default: false },
+            { from: "baseType", type: "string", default:"String" },
+            { from: "name", type: "string", default: name },
+            { from: "isIdentifier", type: "boolean", default: false },
+            { from: "generate", type: "string", default: null }
+        ]);
+        entry.type = entry.baseType;
+
+        for (var attr in config) {
+            if (config.hasOwnProperty(attr)) {
+                if (["key", "name", "baseType", "type", "multiple", "generate", "properties", "isIdentifier"].find(function(p) { return (p == attr); }) == null) {
+                    //entry.validations[attr] = config[attr];
+                    entry.validations.push({
+                        key: attr,
+                        value: config[attr]
+                    });
+                }
+            }
+        }
+
+        if (config.properties != null) {
+            for (var property in config.properties) {
+                if (config.properties.hasOwnProperty(property)) {
+                    entry.properties.push(getPropertyEntry(property, config.properties[property]));
+                }
+            }
+        }
+    }
+
+    return entry;
+}
+
+function getSetEntry(name, config) {
+    var entry = {
+        key: name,
+        value: null, //setting value
+        action: "update", //setting type : update | delete (delete where in List) | insert (insert in list),
+        index: -1, //insertion index ( < 0 ==> append)
+        run: [], //before setting
+        then: [], //after setting
+        condition: "", //setting condition
+        property: {} //property settings
+    };
+    if (typeof config == "string" && config.trim().length > 0) {
+        entry.value = config;
+    } else {
+        helper.populateEntry(entry, config, [
+            { from: "value" },
+            { from: "action", type: "string", default: "update" },
+            { from: "insert", type: "number", default: -1, condition: config.action == "update" },
+            { from: "run", type: "array", default: [] },
+            { from: "then", type: "array", default: [] },
+            { from: "condition", type: "string", default: "" },
+        ]);
+        if(config.property != null)  entry.property = getPropertyEntry(name, config.property);
+    }
+    return entry;
+}
+
+function selectPropertiesFrom(properties, select, reject){
+    var candidates = [];
+
+    if(!Array.isArray(select)) select = [select];
+    if(!Array.isArray(reject)) reject = [reject];
+
+    /*return properties.filter(function(p){
+        return ( (select.find( function(s){ return (p.match(s) != null);  } )  != null ) 
+                && ( reject.find( function(r){ return (p.match(r) != null); } ) == null) 
+            );
+    });*/
+
+    for(var i=0; i< select.length; i++){
+        var entry = properties.find(function(p){ return (p.key == select[i] || select[i] == "*"); });
+        if(entry != null) candidates.push(entry);
+    }
+
+    for(var i=0; i<reject.length; i++){
+        var entry = candidates.find(function(p){ return (p.key == reject[i]); });
+        if(entry != null){
+            candidates = candidates.filter(function(p){ return (p.key != entry.key);});
+        }
+    }
+
+    return candidates;
+}
+
+function selectUpdateProperties(properties, select, reject){
+    if(properties.length <= 0) return [];
+    var candidates = [];
+
+    if(!Array.isArray(select)) select = [select];
+    if(!Array.isArray(reject)) reject = [reject];
+
+    for(var i=0; i< select.length; i++){
+        if(select[i] != null && typeof select[i] === "object"){
+            for(var propertyName in select[i]){
+                if(select[i].hasOwnProperty(propertyName)){
+                    var spEntry = getPropertyEntry(propertyName, select[i][propertyName]);
+                    var ppEntry = properties.find(function(p){ return (p.key == pEntry.key); });
+                    if( ppEntry == null){
+                        candidates.push(pEntry);
+                        properties.push(pEntry);
+                    }else{
+                        candidates.push(ppEntry);
+                    }
+                }
+            }
+        }else{
+            for(var j=0, property; property = properties[j]; j++){
+                if(property.key == select[i] || select[i] == "*") candidates.push(property);
+            }
+        }
+    }
+
+    for(var i=0; i<reject.length; i++){
+        var entry = candidates.find(function(p){ return (p.key == reject[i]); });
+        if(entry != null){
+            candidates = candidates.filter(function(p){ return (p.key != entry.key);});
+        }
+    }
+    return candidates;
+}
+
+/*------------------------------------------------------------------*/
+
+//enums
+function getEnumEntry(name, config) {
+    var entry = {
+        name: name,
+        items: [],
+    };
+    for (var item in config) {
+        if (config.hasOwnProperty(item)) {
+            entry.items.push({ key: item, value: config[item] });
+        }
+    }
+    return entry;
+}
+
+function updateProjectEntryFromEnums(projectEntry, enumsConfig) {
+    for (var enumName in enumsConfig) {
+        if (enumsConfig.hasOwnProperty(enumName)) {
+            if (enumsConfig[enumName] != null) projectEntry.enums.push(getEnumEntry(enumName, enumsConfig[enumName]));
+        }
+    }
+}
+
+/*------------------------------------------------------------------*/
+
+//source queries mappings
+
+function setDataStorageSourceDefault(entry){
+    var appendProperties = [
+        getPropertyEntry('createdBy', {name:'created_by', baseType:'String', length:255}),
+        getPropertyEntry('createdAt', {name:'created_at', baseType:'Date'}),
+        getPropertyEntry('updatedBy', {name:'updated_by', baseType:'String', length:255}),
+        getPropertyEntry('updatedAt', {name:'updated_at', baseType:'Date'}),
+        getPropertyEntry('deletedBy', {name:'deleted_by', baseType:'String', length:255}),
+        getPropertyEntry('deletedAt', {name:'deleted_at', baseType:'Date'}),
+        getPropertyEntry('isDeleted', {name:'is_deleted', baseType:'Boolean', length:1})
+    ];
+    for(var i=0; i<appendProperties.length; i++){
+        entry.properties.push(appendProperties[i]);
+    }
+}
+function setDataStorageSourceDefaultId(entry){
+    entry.properties.push(getPropertyEntry('id', {name:'id', baseType:'Integer', generate: 'AUTO', isIdentifier:true}));
+}
+
+
+function updateQueryProperties(queryEntry, sourceEntry){
+    queryEntry.params = selectUpdateProperties(sourceEntry.properties, queryEntry.paramsMapping, queryEntry.paramsRemove);
+    if(queryEntry.api != null){
+        if(queryEntry.api.rest != null){
+            //log.info(" ================ source entry properties ==========");
+            //log.info(queryEntry.name + " ====>>>> " + stringify(sourceEntry.properties));
+            //log.info(" ================ body parameters before ==========");
+            //log.info(queryEntry.name + " ====>>>> " + stringify(queryEntry.api.rest.bodyMapping));
+
+            queryEntry.api.rest.properties = selectUpdateProperties(sourceEntry.properties, queryEntry.api.rest.propertyMapping, []);
+            for(var i=0; i<queryEntry.api.rest.properties.length; i++){
+                if(queryEntry.params.find(function(p){ return (p.key == queryEntry.api.rest.properties[i].key); }) == null) 
+                    queryEntry.params.push(queryEntry.api.rest.properties[i]);
+            }
+
+            queryEntry.api.rest.header = selectUpdateProperties(sourceEntry.properties, queryEntry.api.rest.headerMapping, queryEntry.api.rest.headerRemove);
+            for(var i=0; i<queryEntry.api.rest.header.length; i++){
+                if(queryEntry.params.find(function(p){ return (p.key == queryEntry.api.rest.header[i].key); }) == null) 
+                    queryEntry.params.push(queryEntry.api.rest.header[i]);
+            }
+
+            queryEntry.api.rest.body = selectUpdateProperties(sourceEntry.properties, queryEntry.api.rest.bodyMapping, queryEntry.api.rest.bodyRemove);
+            //log.info(" ================ body parameters after ==========");
+            //log.info(queryEntry.name + " ====>>>> " + stringify(queryEntry.api.rest.body));
+            //log.info(" ================ body parameters ==========");
+            for(var i=0; i<queryEntry.api.rest.body.length; i++){
+                if(queryEntry.params.find(function(p){ return (p.key == queryEntry.api.rest.body[i].key); }) == null) 
+                    queryEntry.params.push(queryEntry.api.rest.body[i]);
+            }
+
+            for(var i=0; i<queryEntry.api.rest.sets.length; i++){
+                if(queryEntry.params.find(function(p){ return (p.key == queryEntry.api.rest.sets[i].key); }) == null){ 
+                    queryEntry.params.push(queryEntry.api.rest.sets[i].property);
+                }
+                var sourceProperty = sourceEntry.properties.find(function(p){ return (p.key == queryEntry.api.rest.sets[i].key); }) ;
+                if(sourceProperty == null){ 
+                    sourceEntry.properties.push(queryEntry.api.rest.sets[i].property);
+                }else{
+                    queryEntry.api.rest.sets[i].property = sourceProperty;
+                }
+            }
+        }
+    }
+    
+    
+    queryEntry.properties = selectUpdateProperties(sourceEntry.properties, queryEntry.populates, queryEntry.without);
+    for(var i=0; i<queryEntry.sets.length; i++){
+        var sourceProperty = sourceEntry.properties.find(function(p){ return (p.key == queryEntry.sets[i].key); }) ;
+        if(sourceProperty == null){ 
+            queryEntry.properties.push(queryEntry.sets[i].property);
+        }else{
+            queryEntry.api.rest.sets[i].property = sourceProperty;
+        }
+    }
+    
+}
+
+function getRelationEntry(relationKey, relationConfig, source){
+    var entry = {
+        source: source,
+        type:"1*",
+        target: null,
+        required: false,
+        from: null,
+        to: null
+    };
+    return entry;
+}
+
+function initCrudQueries(queriesConfig, sourceKey){
+    if(sourceKey != null && sourceKey.trim().length > 0){
+        if(!queriesConfig.hasOwnProperty("Create"+sourceKey)){
+            queriesConfig["Create"+sourceKey] = {
+                source: sourceKey,
+                operation: "::create",
+                multipleResult: false,
+                populates:"*",
+                without:[],
+                api:{
+                    all:{
+                        set:{
+                            createdAt: "new Date()"
+                        }
+                    },
+                    rest:{
+                        method:"PUT",
+                        consumes: "application/json",
+                        produces: "application/json",
+                        path:"/create",
+                        body: "*",
+                        bodyRemove: ["id","createdAt","updatedBy","updatedAt","deletedBy","deletedAt","isDeleted"]
+                    }
+                }
+            };
+        }
+        if(!queriesConfig.hasOwnProperty("Update"+sourceKey)){
+            queriesConfig["Update"+sourceKey] = {
+                source: sourceKey,
+                operation: "::update",
+                multipleResult: false,
+                populates:"*",
+                without:[],
+                api:{
+                    all:{
+                        set:{
+                            updatedAt: "new Date()"
+                        }
+                    },
+                    rest:{
+                        method:"POST",
+                        consumes: "application/json",
+                        produces: "application/json",
+                        path:"/update/{id}",
+                        body: "*",
+                        bodyRemove: ["id","updatedAt","createdAt","createdBy","deletedBy","deletedAt","isDeleted"],
+                        parameters: "id"
+                    }
+                }
+            };
+        }
+        if(!queriesConfig.hasOwnProperty("Delete"+sourceKey)){
+            queriesConfig["Delete"+sourceKey] = {
+                source: sourceKey,
+                operation: "::delete",
+                multipleResult: false,
+                populates:"*",
+                without:[],
+                api:{
+                    all:{
+                        set:{
+                            deletedAt: "new Date()",
+                            isDeleted: "true"
+                        }
+                    },
+                    rest:{
+                        method:"DELETE",
+                        consumes: "application/json",
+                        produces: "application/json",
+                        path:"/delete/{id}",
+                        parameters: "id"
+                    }
+                }
+            };
+        }
+        if(!queriesConfig.hasOwnProperty("Get"+sourceKey+"ById")){
+            queriesConfig["Get"+sourceKey+"ById"] = {
+                source: sourceKey,
+                operation: "findById",
+                multipleResult: false,
+                populates:"*",
+                without:[],
+                api:{
+                    rest:{
+                        method:"GET",
+                        consumes: "application/json",
+                        produces: "application/json",
+                        path:"/"+sourceKey+"/{id}",
+                        parameters: "id"
+                    }
+                }
+            };
+        }
+        if(!queriesConfig.hasOwnProperty("GetAll"+sourceKey)){
+            queriesConfig["GetAll"+sourceKey] = {
+                source: sourceKey,
+                operation: "findAll",
+                multipleResult: true,
+                populates:"*",
+                without:[],
+                api:{
+                    rest:{
+                        method:"GET",
+                        consumes: null,
+                        produces: "application/json",
+                        path:"/"+sourceKey+"/list"
+                    }
+                }
+            };
+        }
+    }
+}
+
+function updateServiceEntryFromSources(serviceEntry, sourcesConfig){
+    for(var sourceKey in sourcesConfig){
+        if(sourcesConfig.hasOwnProperty(sourceKey)){
+            var sourceConfig = sourcesConfig[sourceKey];
+            var newEntry = false;
+            var entry = serviceEntry.sources.find(function(s){ return (s.key == sourceKey); });
+            if(entry == null){
+                newEntry = true;
+                var entry = {
+                    key: sourceKey,
+                    name: sourceKey,
+                    properties: [],
+                    queries: [],
+                    mappings: [],
+                    relations:[],
+                    join: sourceConfig.join,
+                    hasIdentifier: function(){
+                        return (entry.properties.find(function(p){ return p.isIdentifier; }) != null);
+                    },
+                    getIdentifier: function(){
+                        var id = entry.properties.find(function(p){ return p.isIdentifier; });
+                        if(id == null) return undefined;
+                        return id;
+                    }
+                };
+            }
+
+            if(typeof sourceConfig.name === "string" && sourceConfig.name.trim().length > 0) entry.name = sourceConfig.name;
+
+            //mappings
+            if(sourceConfig.map != null){
+                updateServiceEntryFromMappings(serviceEntry, sourceConfig.map, sourceKey);
+            }
+
+            //properties
+            if(serviceEntry.type == "datastorage") setDataStorageSourceDefaultId(entry);
+            if(sourceConfig.properties != null){
+                for(var property in sourceConfig.properties){
+                    if(sourceConfig.properties.hasOwnProperty(property)){ 
+                        var pentry = getPropertyEntry(property, sourceConfig.properties[property]);
+                        if(entry.properties.find( function(p){ return (p.key == pentry.key); }) == null){
+                            if(pentry.isIdentifier){
+                                entry.properties = entry.properties.filter( function(p){ return !(p.isIdentifier); });
+                            }
+                            entry.properties.push(pentry);
+                        }else{
+                            if(entry.properties.find( function(p){ return (p.name == pentry.name); }) == null){
+                                pentry.key = pentry.name;
+                                entry.properties.push(pentry);
+                            }else{
+                                entry.properties = entry.properties.map(function(p){
+                                    if(p.key == pentry.key){
+                                        p = helper.mergeEntries(p, pentry, true);
+                                        /*for(var eproperty in pentry){
+                                            p[eproperty] = pentry[eproperty];
+                                        }*/
+                                    }
+                                    return p;
+                                });
+                            }
+                        }
+                            
+                    }
+                }
+            }
+            if(serviceEntry.type == "datastorage") setDataStorageSourceDefault(entry);
+
+            //relations
+            if(sourceConfig.relations != null){
+                for(var relation in sourceConfig.relations){
+                    if(sourceConfig.relations.hasOwnProperty(relation)){ 
+                        var rEntry = getRelationEntry(relation, sourceConfig.relations[relation], sourceKey);
+                        if(entry.relations.find(function(r){ return ( (r.target == rEntry.target) && (r.from == rEntry.from) ); }) == null)
+                            entry.relations.push(rEntry);
+                    }
+                }
+            }
+
+            if(newEntry) serviceEntry.sources.push(entry);
+
+            //queries
+            if(sourceConfig.query == null) sourceConfig.query = {};
+            updateServiceEntryFromQueries(serviceEntry, sourceConfig.query, sourceKey);
+
+        }
+    }
+}
+
+function updateServiceEntryFromQueries(serviceEntry, queriesConfig, sourceKey){
+    initCrudQueries(queriesConfig, sourceKey);
+    for(var queryName in queriesConfig){
+        if(queriesConfig.hasOwnProperty(queryName)){
+            var queryConfig = queriesConfig[queryName];
+            var entry = serviceEntry.getQueries().find(function(q){ return (q.name == queryName); });
+            if(entry == null){
+                entry = {
+                    name: queryName,
+                    source: sourceKey,
+                    operation: null,
+                    multipleResult: true,  
+                    options: queryConfig.options,
+                    paramsMapping:[],
+                    paramsRemove:[],
+                    params:[],
+                    properties: [],
+                    computedParams:[],
+                    populates: "*",
+                    without:[],
+                    sets:[],
+                    execute:[],
+                    api: null,
+                    isReadQuery: function(){
+                        return (entry.operation != null && entry.operation != "::create" 
+                                && entry.operation != "::update" && entry.operation != "::delete");
+                    }
+                };
+
+            }else{
+                var sourceEntry = serviceEntry.sources.find(function(s){ return (s.key == entry.source); });
+                if(sourceEntry != null){
+                    entry = sourceEntry.queries.find(function(q){ return (q.name == queryName);} );
+                    updateQueryProperties(entry, sourceEntry);
+                }
+                return;
+            }
+
+
+            if(queryConfig.source != null){
+                if(queryConfig.source.trim().length > 0){
+                    entry.source = queryConfig.source;
+                } 
+            } 
+
+            if(queryConfig.operation != null ){
+                if(queryConfig.operation.trim().length > 0) entry.operation = queryConfig.operation;
+            } 
+            if(queryConfig.multipleResult != null) entry.multipleResult = queryConfig.multipleResult;
+
+            if(queryConfig.without != null){
+                if(queryConfig.without.length > 0) entry.without = queryConfig.without;
+            } 
+            if(queryConfig.populates != null){
+                if(queryConfig.populates.length > 0) entry.populates = queryConfig.populates;
+            } 
+            if(queryConfig.execute != null){
+                if(queryConfig.execute.length > 0) {
+                    entry.execute = queryConfig.execute;
+                    if(!Array.isArray(entry.execute)) entry.execute = [entry.execute];
+                }
+            } 
+            if(queryConfig.params != null){
+                if(queryConfig.params.length > 0) entry.paramsMapping = queryConfig.params;
+            } 
+
+            //sets
+            if(queryConfig.set != null){
+                for(var set in queryConfig.set){
+                    if(queryConfig.set.hasOwnProperty(set)){
+                        entry.sets.push(getSetEntry(set, queryConfig.set[set]));
+                    }
+                }
+            }
+
+            //rest api
+            if(queryConfig.api != null){
+                entry.api = {};
+                if(queryConfig.api.rest != null){
+                    entry.exposed = true;
+                    entry.api.rest = {
+                        method: "GET",
+                        consumes:null,
+                        produces:null,
+                        path:"/"+queryName,
+                        propertyMapping:[],
+                        properties:[],
+                        headerMapping:[],
+                        headerRemove: [],
+                        header:[],
+                        bodyMapping:[],
+                        bodyRemove: [],
+                        body:[],
+                        sets:[]
+                    };
+
+                    if(queryConfig.api.rest.method != null) {
+                        if(queryConfig.api.rest.method.trim().length > 0) entry.api.rest.method = queryConfig.api.rest.method;
+                    }
+                    
+                    if(queryConfig.api.rest.path != null){
+                        if(queryConfig.api.rest.path.trim().length > 0) entry.api.rest.path = queryConfig.api.rest.path;
+                    } 
+
+                    if(queryConfig.api.rest.consumes != null ){
+                        if(queryConfig.api.rest.consumes.trim().length > 0) entry.api.rest.consumes = queryConfig.api.rest.consumes;
+                    } 
+                    if(queryConfig.api.rest.produces != null){
+                        if(queryConfig.api.rest.produces.trim().length > 0) entry.api.rest.produces = queryConfig.api.rest.produces;
+                    } 
+
+                    if(queryConfig.api.rest.parameters != null ){
+                        if(queryConfig.api.rest.parameters.length > 0) entry.api.rest.propertyMapping = queryConfig.api.rest.parameters;
+                    } 
+                    if(queryConfig.api.rest.header != null ){
+                        if(queryConfig.api.rest.header.length > 0) entry.api.rest.headerMapping = queryConfig.api.rest.header;
+                    } 
+                    if(queryConfig.api.rest.headerRemove != null ){
+                        if(queryConfig.api.rest.headerRemove.length > 0) entry.api.rest.headerRemove = queryConfig.api.rest.headerRemove;
+                    } 
+                    if(queryConfig.api.rest.body != null){
+                        if(queryConfig.api.rest.body.length > 0) entry.api.rest.bodyMapping = queryConfig.api.rest.body;
+                    } 
+                    if(queryConfig.api.rest.bodyRemove != null ){
+                        if(queryConfig.api.rest.bodyRemove.length > 0) entry.api.rest.bodyRemove = queryConfig.api.rest.bodyRemove;
+                    } 
+                    if(queryConfig.api.rest.set != null){
+                        for(var set in queryConfig.api.rest.set){
+                            if(queryConfig.api.rest.set.hasOwnProperty(set)){
+                                entry.api.rest.sets.push(getSetEntry(set, queryConfig.api.rest.set[set]));
+                            }
+                        }
+                    }
+                    if(queryConfig.api.all != null){
+                        if(queryConfig.api.all.set != null){
+                            for(var set in queryConfig.api.all.set){
+                                if(queryConfig.api.all.set.hasOwnProperty(set)){
+                                    entry.api.rest.sets.push(getSetEntry(set, queryConfig.api.all.set[set]));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            //soap api
+
+            //params
+            /*if(queryConfig.params != null){
+                if(queryConfig.params.length > 0) entry.paramsMapping = queryConfig.params;
+            }*/
+
+            if(entry.source != null){
+                if(serviceEntry.sources.find(function(s){ return (s.key == entry.source); }) == null){
+                    var sourcesConfig = {};
+                    sourcesConfig[entry.source] = {};
+                    updateServiceEntryFromSources(serviceEntry, sourcesConfig);
+                }
+            }
+
+            //properties
+            var sourceEntry = serviceEntry.sources.find( function(src){ return (src.key == entry.source);});
+            if(sourceEntry != null){
+                updateQueryProperties(entry, sourceEntry);
+                sourceEntry.queries.push(entry);
+            }
+        }
+    }
+}
+
+function updateServiceEntryFromMappings(serviceEntry, mappingsConfig, sourceKey){
+    var entry = {
+        key: "",
+        source: "",
+        using: null,
+        actionType: "create",
+        properties: [],
+        configure: {},
+        sets:[],
+        init: [],
+        onSucess: [],
+        onFail: [],
+        execution: []
+    };
+}
+
+/*------------------------------------------------------------------*/
+
+//services
+function getServiceEntry(name, config){
+    var entry = {
+        name: name,
+        type:"datastorage",
+        sources:[],
+        getQueries: function(){
+            var result = [];
+            for(var i=0; i<entry.sources.length; i++){
+                result = result.concat(entry.sources[i].queries);
+            }
+            return result;
+        },
+        getMappings: function(){
+            var result = [];
+            for(var i=0; i<entry.sources.length; i++){
+                result = result.concat(entry.sources[i].mappings);
+            }
+            return result;
+        }
+    };
+
+    helper.populateEntry(entry, config, [
+        { from:"type", type:"string", default:"datastorage"},
+        { from:"options", type:"object", default:{}}
+    ]);
+
+    /*
+    if(serviceConfig.type != null) entry.type = serviceConfig.type;
+    if(serviceConfig.options == null) serviceConfig.options = {};
+    if(serviceConfig.restApiBasePath != null && serviceConfig.restApiBasePath.trim().length > 0) entry.restApiBasePath = serviceConfig.restApiBasePath;
+    */
+    
+    //mappings
+    //if(config.map != null) updateServiceEntryFromMappings(entry, config.map, null);
+
+    //sources
+    if(config.sources != null) updateServiceEntryFromSources(entry, config.sources);
+
+    //queries
+    if(config.query != null) updateServiceEntryFromQueries(entry, config.query, null);
+
+    return entry;
+
+}
+
+function updateProjectEntryFromServices(projectEntry, servicesConfig){
+    for(var serviceName in servicesConfig){
+        if(servicesConfig.hasOwnProperty(serviceName)){
+            projectEntry.services.push(getServiceEntry(serviceName, servicesConfig[serviceName]));
+        }
+    }
+}
+
+/*------------------------------------------------------------------*/
+
+//projects
+function getProjectEntry(name, config) {
+    var entry = {
+        name: name,
+        enums: [],
+        domain: {
+            aggregates: [],
+            sagas: [],
+            getCommands: function() {
+                return entry.domain.aggregates.map(function(aggr) {
+
+                });
+            },
+            getEvents: function() {
+                return entry.domain.aggregates.map(function(aggr) {
+
+                });
+            }
+        },
+        services: []
+    };
+
+    if (config.enums != null) updateProjectEntryFromEnums(entry, config.enums);
+    if(config.services != null) updateProjectEntryFromServices(entry, config.services);
+
+    return entry;
+}
+
+function getProjectEntries(config) {
+    var entries = [];
+    for (var project in config) {
+        if (config.hasOwnProperty(project)) {
+            entries.push(getProjectEntry(project, config[project]));
+        }
+    }
+    return entries;
+}
+
+/*------------------------------------------------------------------*/
+
+
+%>

@@ -1,0 +1,32 @@
+package {{: output.responseDto.package}};
+
+{{for output.responseDto.dependencies}}import {{:#data}};
+{{/for}}
+
+@JsonInclude(Include.NON_NULL)
+public class {{: output.responseDto.className}} {
+	
+    {{for properties}}
+    private {{:baseType}} {{:key}};
+    {{/for}}
+
+
+	public void populateFrom({{: output.entity.className}} entity){
+		{{for properties}}this.{{: #data.key}} = entity.{{: ~root.output.responseDto.getPropertyGetterName(#data.key)}}();
+		{{/for}}
+	} 
+
+    {{for properties}}
+    public {{:type}} {{: ~root.output.responseDto.getPropertyGetterName(#data.key)}}() {
+       return {{:key}};
+    }
+    {{/for}}
+
+
+    {{for properties}}
+    public void {{: ~root.output.responseDto.getPropertySetterName(#data.key) }}({{:type}} {{:key}}) {
+        this.{{:key}} = {{:key}};
+    }
+    {{/for}}
+	
+}

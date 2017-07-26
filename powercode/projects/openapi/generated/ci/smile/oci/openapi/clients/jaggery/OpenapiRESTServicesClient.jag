@@ -1,0 +1,205 @@
+<%
+
+function CreateApplication( name, policy, workflowRef, status, username, createdBy ){
+    var path = OpenapiRESTServicesClient.endpoint + "/Application/create";
+    var data = stringify({ 
+        "name": name,
+        "policy": policy,
+        "workflowRef": workflowRef,
+        "status": status,
+        "username": username,
+        "createdBy": createdBy
+    });
+    var queryResult = put(
+        path, data,
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        },
+        'json'
+    );
+    return queryResult;
+}
+
+function UpdateApplication( id, name, policy, workflowRef, status, username, updatedBy ){
+    var path = OpenapiRESTServicesClient.endpoint + "/Application/update/"+ id +"";
+    var data = stringify({ 
+        "name": name,
+        "policy": policy,
+        "workflowRef": workflowRef,
+        "status": status,
+        "username": username,
+        "updatedBy": updatedBy
+    });
+    var queryResult = post(
+        path, data,
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        },
+        'json'
+    );
+    return queryResult;
+}
+
+function DeleteApplication( id ){
+    var path = OpenapiRESTServicesClient.endpoint + "/Application/delete/"+ id +"";
+    
+    var queryResult = del(
+        path, 
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        },
+        'json'
+    );
+    return queryResult;
+}
+
+function GetApplicationById( id ){
+    var path = OpenapiRESTServicesClient.endpoint + "/Application/Application/"+ id +"";
+    
+    var queryResult = get(
+        path, 
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        },
+        'json'
+    );
+    return queryResult;
+}
+
+function GetAllApplication( ){
+    var path = OpenapiRESTServicesClient.endpoint + "/Application/Application/list";
+    
+    var queryResult = get(
+        path, 
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        },
+        'json'
+    );
+    return queryResult;
+}
+
+function GetApplicationByPolicy( policy ){
+    var path = OpenapiRESTServicesClient.endpoint + "/Application/list/"+ policy +"";
+    
+    var queryResult = get(
+        path, 
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        },
+        'json'
+    );
+    return queryResult;
+}
+
+function CreateSubscription( policy, workflowRef, status, applicationId, apiName, apiVersion, apiContext, createdBy ){
+    var path = OpenapiRESTServicesClient.endpoint + "/Subscription/create";
+    var data = stringify({ 
+        "policy": policy,
+        "workflowRef": workflowRef,
+        "status": status,
+        "applicationId": applicationId,
+        "apiName": apiName,
+        "apiVersion": apiVersion,
+        "apiContext": apiContext,
+        "createdBy": createdBy
+    });
+    var queryResult = put(
+        path, data,
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        },
+        'json'
+    );
+    return queryResult;
+}
+
+function UpdateSubscription( id, policy, workflowRef, status, applicationId, apiName, apiVersion, apiContext, updatedBy ){
+    var path = OpenapiRESTServicesClient.endpoint + "/Subscription/update/"+ id +"";
+    var data = stringify({ 
+        "policy": policy,
+        "workflowRef": workflowRef,
+        "status": status,
+        "applicationId": applicationId,
+        "apiName": apiName,
+        "apiVersion": apiVersion,
+        "apiContext": apiContext,
+        "updatedBy": updatedBy
+    });
+    var queryResult = post(
+        path, data,
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        },
+        'json'
+    );
+    return queryResult;
+}
+
+function DeleteSubscription( id ){
+    var path = OpenapiRESTServicesClient.endpoint + "/Subscription/delete/"+ id +"";
+    
+    var queryResult = del(
+        path, 
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        },
+        'json'
+    );
+    return queryResult;
+}
+
+function GetSubscriptionById( id ){
+    var path = OpenapiRESTServicesClient.endpoint + "/Subscription/Subscription/"+ id +"";
+    
+    var queryResult = get(
+        path, 
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        },
+        'json'
+    );
+    return queryResult;
+}
+
+function GetAllSubscription( ){
+    var path = OpenapiRESTServicesClient.endpoint + "/Subscription/Subscription/list";
+    
+    var queryResult = get(
+        path, 
+        {
+            "cache-control" : "no-cache",
+            "content-type": "application/json"
+        },
+        'json'
+    );
+    return queryResult;
+}
+
+
+var OpenapiRESTServicesClient = {
+    endpoint: "http://localhost:8080",
+    CreateApplication: CreateApplication,
+    UpdateApplication: UpdateApplication,
+    DeleteApplication: DeleteApplication,
+    GetApplicationById: GetApplicationById,
+    GetAllApplication: GetAllApplication,
+    GetApplicationByPolicy: GetApplicationByPolicy,
+    CreateSubscription: CreateSubscription,
+    UpdateSubscription: UpdateSubscription,
+    DeleteSubscription: DeleteSubscription,
+    GetSubscriptionById: GetSubscriptionById,
+    GetAllSubscription: GetAllSubscription
+}
+
+%>

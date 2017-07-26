@@ -1,0 +1,32 @@
+package {{: output.entity.package}};
+
+{{for output.entity.dependencies}}import {{:#data}};
+{{/for}}
+@Entity
+@Table(name="{{:name}}" )
+public class {{:output.entity.className}} implements Serializable {
+    
+    private static final long serialVersionUID = 1L;
+    
+    {{for properties}}{{if isIdentifier}}@Id{{/if}}{{if generate != null}}
+    @GeneratedValue(strategy=GenerationType.{{: generate}}){{/if}}{{if baseType === "Date"}}
+    @Temporal(TemporalType.DATE){{/if}}
+    @Column(name="{{:name}}"{{if validations.length}} {{for validations}}, {{:key}}={{:value}}{{/for}}{{/if}} )
+    private {{:baseType}} {{:key}};
+    {{/for}}
+
+    
+    {{for properties}}
+    public {{:type}} {{: ~root.output.entity.getPropertyGetterName(#data.key)}}() {
+       return {{:key}};
+    }
+    {{/for}}
+
+
+    {{for properties}}
+    public void {{: ~root.output.entity.getPropertySetterName(#data.key) }}({{:type}} {{:key}}) {
+        this.{{:key}} = {{:key}};
+    }
+    {{/for}}
+   
+}
